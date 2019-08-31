@@ -9,13 +9,13 @@ The add-in should work in all Windows versions of Excel, with separate 32-bit an
 
 Examples
 --------
-These examples correspond to the online help documentation for the respective functions.
+The [HelpExamples workbook](https://github.com/Excel-DNA/XFunctions/blob/master/Examples/HelpExamples.xlsx) contains a number of examples corresponding to the online help documentation for the respective functions.
 
-![XLOOKUP Example 1](https://raw.github.com/Excel-DNA/XFunctions/master/Screenshots/XLOOKUP Example 1.PNG)
+![XLOOKUP Example 1](https://github.com/Excel-DNA/XFunctions/blob/master/Screenshots/XLOOKUPExample1.png)
 
-![XLOOKUP Example 3](https://raw.github.com/Excel-DNA/XFunctions/master/Screenshots/XLOOKUP Example 3.PNG)
+![XLOOKUP Example 3](https://github.com/Excel-DNA/XFunctions/blob/master/Screenshots/XLOOKUPExample3.png)
 
-![XMATCH Example 1](https://raw.github.com/Excel-DNA/XFunctions/master/Screenshots/XMATCH Example 1.PNG)
+![XMATCH Example 1](https://github.com/Excel-DNA/XFunctions/blob/master/Screenshots/XMATCHExample1.png)
 
 Notes
 -----
