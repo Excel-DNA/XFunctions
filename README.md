@@ -9,7 +9,7 @@ The add-in should work in all Windows versions of Excel, with separate 32-bit an
 
 Examples
 --------
-These examples correspond to the online help documentation for the respective functions.
+The [HelpExamples workbook](https://github.com/Excel-DNA/XFunctions/blob/master/Examples/HelpExamples.xlsx) contains a number of examples corresponding to the online help documentation for the respective functions.
 
 ![XLOOKUP Example 1](https://github.com/Excel-DNA/XFunctions/blob/master/Screenshots/XLOOKUPExample1.png)
 
