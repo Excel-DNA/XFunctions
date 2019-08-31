@@ -7,6 +7,16 @@ So far I have only implemented the default exact first-item match case (with and
 
 The add-in should work in all Windows versions of Excel, with separate 32-bit and 64-bit add-ins.
 
+Examples
+--------
+These examples correspond to the online help documentation for the respective functions.
+
+![XLOOKUP Example 1](https://raw.github.com/Excel-DNA/XFunctions/master/Screenshots/XLOOKUP Example 1.PNG)
+
+![XLOOKUP Example 3](https://raw.github.com/Excel-DNA/XFunctions/master/Screenshots/XLOOKUP Example 3.PNG)
+
+![XMATCH Example 1](https://raw.github.com/Excel-DNA/XFunctions/master/Screenshots/XMATCH Example 1.PNG)
+
 Notes
 -----
 * I've not seen the real `XLOOKUP` or `XMATCH` functions myself, so haven't been able to compare this implementation.
