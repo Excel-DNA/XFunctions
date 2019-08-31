@@ -35,5 +35,7 @@ License
 This project is published under the standard MIT license.
 
   Govert van Drimmelen
+  
   govert@icon.co.za
+  
   31 August 2019
