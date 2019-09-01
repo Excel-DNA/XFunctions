@@ -1,12 +1,18 @@
-﻿using ExcelDna.Integration;
+﻿using System;
+using System.Collections.Generic;
+using ExcelDna.Integration;
+using static ExcelDna.Integration.XlCall;
 
 namespace ExcelDna.XFunctions
 {
-    // TODO: Various outstanding XMATCH parameter cases
-    //       Split implementation from the argument-heavy definitions
+    // TODO: Split implementation from the argument-heavy definitions
     //       Clean up parameter validation and int / double .Equals messiness
     //       Decide what to do with names and registering on an Excel which has native XLOOKUP support
     //       Release packaging etc.
+    //       Marking lookup_array also AllowReference=true can improve performance when passed to MATCH (but we need some care otherwise)
+    //       (Then we also need to improve our SortedMatch)
+    //       Sorting and caching the lookup_array can improve performance
+    //       Testing for larger inputs & performance
 
     public static class Functions
     {
@@ -218,6 +224,7 @@ namespace ExcelDna.XFunctions
             }
 
             // Now deal with search_mode
+            // Sort out default value
             if (search_mode is ExcelMissing)
                 search_mode = 1.0;
 
@@ -232,34 +239,338 @@ namespace ExcelDna.XFunctions
             // match_mode == -1 (exact or next smaller) and search_mode == 2 (sorted ascending) ==> match_type = 1 in MATCH ?????
             // match_mode == 1 (exact or next larger) and search_mode == 2 (sorted descending) ==> match_type = -1 in MATCH ?????
 
-            // We'll use this for the MATCH call
-            double match_type;
-
             if (match_mode.Equals(0.0) && search_mode.Equals(1.0))
             {
-                match_type = 0.0;
+                double match_type = 0.0;
+                return Excel(xlfMatch, lookup_value, lookup_array, match_type);
             }
             else if (match_mode.Equals(-1.0) && search_mode.Equals(2.0))
             {
-                match_type = 1.0; // ????? seems strange that XMATCH param -1 corresponds to MATCH param 1
+                double match_type = 1.0; // ????? seems strange that XMATCH param -1 corresponds to MATCH param 1
+                return Excel(xlfMatch, lookup_value, lookup_array, match_type);
             }
             else if (match_mode.Equals(1.0) && search_mode.Equals(-2.0))
             {
-                match_type = -1.0; // ????? seems strange that XMATCH param 1 corresponds to MATCH param -1
+                double match_type = -1.0; // ????? seems strange that XMATCH param 1 corresponds to MATCH param -1
+                return Excel(xlfMatch, lookup_value, lookup_array, match_type);
             }
             else
             {
-                // TODO: Not supported yet - need to sort etc.
-                return ExcelError.ExcelErrorValue;
+                // Other cases use our ExcelCompare to fix, or our UnsortedMatch
+                if (match_mode.Equals(0.0))    // exact match
+                {
+                    if (search_mode.Equals(-1.0))
+                    {
+                        return UnsortedMatch(lookup_value, lookup_array, 0, reverse_lookup: true);
+                    }
+                    else if (search_mode.Equals(2.0))
+                    {
+                        // Means lookup_array is sorted in ascending order
+                        // Do built-in match and check result for equals
+                        double match_type = 1.0;
+                        var match = Excel(xlfMatch, lookup_value, lookup_array, match_type);
+                        if (match is double matchPos)
+                        {
+                            // Check for equals
+                            var matchValue = GetLookupValue(lookup_array, (int)matchPos);
+                            if (ExcelCompare(lookup_value, matchValue) == 0)
+                                return match;
+                            else
+                                return ExcelError.ExcelErrorNA;
+                        }
+                        else
+                        {
+                            // Some error
+                            return match;
+                        }
+                    }
+                    else if (search_mode.Equals(2.0))
+                    {
+                        // Means lookup_array is sorted in descending order
+                        // Do built-in match and check result for equals
+                        double match_type = -1.0;
+                        var match = Excel(xlfMatch, lookup_value, lookup_array, match_type);
+                        if (match is double matchPos)
+                        {
+                            // Check for equals
+                            var matchValue = GetLookupValue(lookup_array, (int)matchPos);
+                            if (ExcelCompare(lookup_value, matchValue) == 0)
+                                return match;
+                            else
+                                return ExcelError.ExcelErrorNA;
+                        }
+                        else
+                        {
+                            // Some error
+                            return match;
+                        }
+                    }
+                }
+                else if (match_mode.Equals(-1.0)) // we want best match with match <= lookup
+                {
+                    var match_type = 1; // Reversed meaning in MATCH and UnsortedMatch
+                    if (search_mode.Equals(1.0)) // first-to-last
+                    {
+                        return UnsortedMatch(lookup_value, lookup_array, match_type, reverse_lookup: false);
+                    }
+                    else if (search_mode.Equals(-1.0)) // last-to-first
+                    {
+                        // TODO: Check what this case does for equal values - return first hit or last?
+                        return UnsortedMatch(lookup_value, lookup_array, match_type, reverse_lookup: true);
+                    }
+                    else if (search_mode.Equals(2.0))
+                    {
+                        // Already done this case with MATCH - bug if we get here
+                        return ExcelError.ExcelErrorValue;
+                    }
+                    else if (search_mode.Equals(-2.0))
+                    {
+                        // We have descending sorted data, and want best match at or just after lookup
+                        // We'll do the search forward
+                        // TODO: Check what this case does for equal values - return first hit or last?
+                        return UnsortedMatch(lookup_value, lookup_array, match_type, reverse_lookup: false);
+                    }
 
-                // Easiest next one is match_mode == 0 && search_mode == -1 (last-to-first)
-                // For this we just reverse the lookup_array and incert the result index
-                // Next we have match_mode == 0 && (search_mode == 2 || search_mode == -2) 
-                // ??? - does the binary search matter here for the exact match?
+                }
+                else if (match_mode.Equals(1.0)) // we want best match with match >= lookup
+                {
+                    var match_type = -1; // Reversed meaning in MATCH and UnsortedMatch
+                    if (search_mode.Equals(1.0)) // first-to-last
+                    {
+                        return UnsortedMatch(lookup_value, lookup_array, match_type, reverse_lookup: false);
+                    }
+                    else if (search_mode.Equals(-1.0)) // last-to-first
+                    {
+                        // TODO: Check what this case does for equal values - return first hit or last?
+                        return UnsortedMatch(lookup_value, lookup_array, match_type, reverse_lookup: true);
+                    }
+                    else if (search_mode.Equals(2.0))
+                    {
+                        // We have ascending sorted data, and want best match at or just after lookup
+                        // We'll do the search backward
+                        // TODO: Check what this case does for equal values - return first hit or last?
+                        return UnsortedMatch(lookup_value, lookup_array, match_type, reverse_lookup: true);
+                    }
+                    else if (search_mode.Equals(-2.0))
+                    {
+                        // Already done this case with MATCH - bug if we get here
+                        return ExcelError.ExcelErrorValue;
+                    }
+                }
             }
 
-            // We're OK for MATCH
-            return XlCall.Excel(XlCall.xlfMatch, lookup_value, lookup_array, match_type);
+            // TODO: Not supported yet ????
+            return ExcelError.ExcelErrorValue;
         }
+
+        // This comparison function must agree exactly with how Excel compares two values
+        // I'm avoiding to implment it myself for now - who know what the rules are for strings, errors etc.
+        // Instead I base it on a call to MATCH
+        // If a < b it returns -1
+        // if a == b it returns 0
+        // if a > b it returns 1
+#if DEBUG
+        public  // allows checking on a sheet
+#endif
+            static int ExcelCompare(object a, object b)
+        {
+            // Is a <= b ? (MATCH with match_type -1 will return 1.0 if so, else #N/A error)
+            object a_leq_b_res = Excel(xlfMatch, a, new object[] { b }, -1.0);
+            object b_leq_a_res = Excel(xlfMatch, b, new object[] { a }, -1.0);
+
+            bool a_leq_b = a_leq_b_res is double;
+            bool b_leq_a = b_leq_a_res is double;
+
+            if (a_leq_b)
+            {
+                if (b_leq_a)
+                    return 0;
+                else
+                    return -1;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+
+
+        // Implements something like MATCH with the same match_type interpretation, but working on unsorted inputs
+        // MATCH(lookup_value, lookup_array, [match_type])
+
+        // lookup_value: Required.The value that you want to match in lookup_array.
+        // lookup_value argument can be a value (number, text, or logical value) or a cell reference to a number, text, or logical value.
+        // lookup_array Required.The range of cells being searched. Either a row or a column, but not a non-trivial 2D array
+        // match_type The number -1, 0, or 1. The match_type argument specifies how Excel matches lookup_value with values in lookup_array.The default value for this argument is 1.
+        // 1 - finds the largest value that is less than or equal to lookup_value. lookup_array does not need to be sorted.
+        // 0 - finds the first value that is exactly equal to lookup_value. NO WILDCARDS.
+        // -1 - finds the smallest value that is greater than or equal to lookup_value. lookup_array does not need to be sorted.
+#if DEBUG
+        public  // allows checking on a sheet
+#endif
+        static object UnsortedMatch(object lookup_value, object lookup_array, int match_type, bool reverse_lookup = false)
+        {
+            int currentIndex = 0; // 1-based index
+            int bestIndex = 0;    // 1-based index
+            object bestValue = null;
+
+            foreach (var currentValue in GetLookupValues(lookup_array))
+            {
+                currentIndex++;
+
+                int cmp = ExcelCompare(currentValue, lookup_value);
+                if (bestValue == null)
+                {
+                    if (match_type == 0)
+                    {
+                        if (cmp == 0) // currentValue == lookup_value
+                        {
+                            // Exact match and we found one - return immediately if not reverse_lookup
+                            bestIndex = currentIndex;
+                            bestValue = currentValue;
+                            if (!reverse_lookup)
+                                return (double)currentIndex;
+                        }
+                    }
+                    else if (match_type == 1) // We want best <= lookup
+                    {
+
+                        if (cmp == 0 || cmp == -1) // currentValue <= lookup_value
+                        {
+                            // Take it
+                            bestIndex = currentIndex;
+                            bestValue = currentValue;
+                        }
+                    }
+                    else if (match_type == -1) // We want best >= lookup
+                    {
+                        if (cmp == 0 || cmp == 1) // currentValue >= lookup_value
+                        {
+                            // Take it
+                            bestIndex = currentIndex;
+                            bestValue = currentValue;
+                        }
+                    }
+                    else
+                    {
+                        return ExcelError.ExcelErrorValue;
+                    }
+                }
+                else // We have a value already, see if currentValue improves it
+                {
+                    int cmpBest = ExcelCompare(currentValue, bestValue);
+
+                    if (match_type == 0)
+                    {
+                        if (cmp == 0) // currentValue == lookup_value
+                        {
+                            // Exact match and we found one - this is the 'best' so far, since we must be doing reverse_lookup
+                            bestIndex = currentIndex;
+                            bestValue = currentValue;
+                        }
+                    }
+                    else if (match_type == 1) // We want best <= lookup
+                    {
+                        if (cmp == 0 || cmp == -1) // currentValue <= lookup_value
+                        {
+                            if (cmpBest == -1) // current < best
+                            {
+                                // No good for us
+                            }
+                            else if (cmpBest == 0) // current == best
+                            {
+                                // If we are doing reverse_lookup, it's better since it came later
+                                if (reverse_lookup)
+                                {
+                                    bestIndex = currentIndex;
+                                    bestValue = currentValue;
+                                }
+                            }
+                            else if (cmpBest == 1) // current > best
+                            {
+                                // Better than best
+                                bestIndex = currentIndex;
+                                bestValue = currentValue;
+                            }
+                        }
+                    }
+                    else if (match_type == -1) // We want best >= lookup
+                    {
+                        if (cmp == 0 || cmp == 1) // currentValue >= lookup_value
+                        {
+                            if (cmpBest == 1) // current > best
+                            {
+                                // No good for us
+                            }
+                            else if (cmpBest == 0) // current == best
+                            {
+                                // If we are doing reverse_lookup, it's better since it came later
+                                if (reverse_lookup)
+                                {
+                                    bestIndex = currentIndex;
+                                    bestValue = currentValue;
+                                }
+                            }
+                            else if (cmpBest == -1) // current < best
+                            {
+                                // Better than best
+                                bestIndex = currentIndex;
+                                bestValue = currentValue;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (bestIndex == 0)
+                return ExcelError.ExcelErrorNA;
+
+            // Return 1-based index as double
+            return (double)bestIndex;
+
+        }
+
+        // This would change if we allowed lookup_array to be an ExcelReference - we'd want to build single-cell ExcelReferences
+        static IEnumerable<object> GetLookupValues(object lookup_array)
+        {
+            var arr = lookup_array as object[,];
+            int rows = arr.GetLength(0);
+            int cols = arr.GetLength(1);
+            // If it's a single row, we enumerate along the columns
+            if (rows == 1)
+            {
+                for (int i = 0; i < cols; i++)
+                {
+                    yield return arr[0, i];
+                }
+            }
+            else
+            {
+                // Else we assume it's a single column, and go down the rows
+                for (int i = 0; i < rows; i++)
+                {
+                    yield return arr[i, 0];
+                }
+            }
+        }
+
+        // TODO: Might deal with ExcelReference later
+        static object GetLookupValue(object lookup_array, int oneBasedPosition)
+        {
+            var arr = lookup_array as object[,];
+            int rows = arr.GetLength(0);
+            int cols = arr.GetLength(1);
+            // If it's a single row, we return from the right column
+            if (rows == 1)
+            {
+                return arr[0, oneBasedPosition - 1];
+            }
+            else
+            {
+                // Else we assume it's a single column, and return from the right rows
+                return arr[oneBasedPosition - 1, 0];
+            }
+        }
+
     }
 }
