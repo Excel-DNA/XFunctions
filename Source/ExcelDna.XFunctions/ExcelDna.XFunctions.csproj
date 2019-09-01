@@ -66,4 +66,9 @@
     </PropertyGroup>
     <Error Condition="!Exists('packages\ExcelDna.AddIn.1.0.0\build\ExcelDna.AddIn.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\ExcelDna.AddIn.1.0.0\build\ExcelDna.AddIn.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>mkdir $(TargetDir)Publish 2&gt;NUL
+xcopy /Y $(TargetDir)ExcelDna.XFunctions-packed.xll $(TargetDir)Publish\ExcelDna.XFunctions.xll*
+xcopy /Y $(TargetDir)ExcelDna.XFunctions64-packed.xll $(TargetDir)Publish\ExcelDna.XFunctions64.xll*</PostBuildEvent>
+  </PropertyGroup>
 </Project>
