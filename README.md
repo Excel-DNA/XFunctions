@@ -13,6 +13,7 @@ Getting Started
 ---------------
 Binary releases are hosted on GitHub: https://github.com/Excel-DNA/XFunctions/releases
 
+Here are some example workbooks with data from the online help and other blogs posts showing the new functions: https://github.com/Excel-DNA/XFunctions/tree/master/Examples
 
 Examples
 --------
