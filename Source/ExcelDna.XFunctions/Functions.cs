@@ -204,11 +204,12 @@ namespace ExcelDna.XFunctions
                 match_mode.Equals(-1.0))
             {
                 // We're not in wildcard mode, escape any wildcards so they don't bother MATCH
+                // TODO: Test along various branches when doing our own comparison
                 if (lookup_value is string str)
                 {
+                    str = str.Replace("~", "~~");
                     str = str.Replace("?", "~?");
                     str = str.Replace("*", "~*");
-                    str = str.Replace("~", "~~");
                     lookup_value = str;
                 }
             }
