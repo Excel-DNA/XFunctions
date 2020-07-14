@@ -1,5 +1,7 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
+using System.Globalization;
 using ExcelDna.Integration;
 using static ExcelDna.Integration.XlCall;
 
@@ -37,8 +39,12 @@ namespace ExcelDna.XFunctions
             if (matchResult is ExcelError error)
             {
                 if (error == ExcelError.ExcelErrorNA)
+                {
                     if (if_not_found is ExcelMissing)
                         return ExcelError.ExcelErrorNA; // Default if not found is #N/A
+                    else
+                        return if_not_found;
+                }
 
                 return error; // Might be other error, likely #VALUE
             }
@@ -175,6 +181,9 @@ namespace ExcelDna.XFunctions
                 Description = "specify the search mode to use (optional)\r\n 1 - Search first-to-last (default)\r\n -1 - Search last-to-first\r\n 2 - Binary search (sorted ascending order)\r\n -2 - Binary search (sorted descending order)"
             )] object search_mode)
         {
+            if (lookup_value is ExcelError)
+                return lookup_value;    // Seems to be Excel's behaviour
+
             if (lookup_value is object[,])
             {
                 // TODO: Does XMATCH support lookup_value that is an array?
@@ -243,9 +252,10 @@ namespace ExcelDna.XFunctions
             }
 
             // Three cases are fine:
+            // TODO: Actually these are not correct: MATCH and XMATCH do comparisons differently.
             // match_mode == 0 (exact_match) and search_mode == 1 (first-to-last) ==> match_type = 0 in MATCH
             // match_mode == -1 (exact or next smaller) and search_mode == 2 (sorted ascending) ==> match_type = 1 in MATCH ?????
-            // match_mode == 1 (exact or next larger) and search_mode == 2 (sorted descending) ==> match_type = -1 in MATCH ?????
+            // match_mode == 1 (exact or next larger) and search_mode == -2 (sorted descending) ==> match_type = -1 in MATCH ?????
 
             if (match_mode.Equals(0.0) && search_mode.Equals(1.0))
             {
@@ -372,34 +382,82 @@ namespace ExcelDna.XFunctions
         }
 
         // This comparison function must agree exactly with how Excel compares two values
-        // I'm avoiding to implment it myself for now - who know what the rules are for strings, errors etc.
+        // We accept only numbers, strings, bools and errors (no ExcelReference or arrays)
         // Instead I base it on a call to MATCH
         // If a < b it returns -1
         // if a == b it returns 0
         // if a > b it returns 1
+        // if a and b can't be compared, because one is an error, returns -2
 #if DEBUG
-        public  // allows checking on a sheet
+        [ExcelFunction] public  // allows checking on a sheet
 #endif
-            static int ExcelCompare(object a, object b)
+        static int ExcelCompare(object a, object b)
         {
-            // Is a <= b ? (MATCH with match_type -1 will return 1.0 if so, else #N/A error)
-            object a_leq_b_res = Excel(xlfMatch, a, new object[] { b }, -1.0);
-            object b_leq_a_res = Excel(xlfMatch, b, new object[] { a }, -1.0);
+            if (a is ExcelError || b is ExcelError)
+                return -2;
 
-            bool a_leq_b = a_leq_b_res is double;
-            bool b_leq_a = b_leq_a_res is double;
-
-            if (a_leq_b)
+            if (a is double da)
             {
-                if (b_leq_a)
-                    return 0;
+                // Not going to worry about NaN etc.
+                if (b is double db)
+                    return (da < db) ? -1 : (da == db ? 0 : 1);
                 else
-                    return -1;
+                    return -1; // b is a string or bool, so a < b
             }
-            else
+            
+            if (a is string sa)
             {
-                return 1;
+                if (b is double)
+                    return 1; // a > b
+                if (b is string sb)
+                {
+                    var cmp = string.Compare(sa, sb, true);
+                    var result = (cmp < 0) ? -1 : (cmp == 0 ? 0 : 1);
+
+#if DEBUG
+                    // We could call match to avoid dealing with locales etc., until we know how Excel deals with this
+                    int dbg_result = -3;
+                    {
+
+                        // Is a <= b ? (MATCH with match_type -1 will return 1.0 if so, else #N/A error)
+                        object a_leq_b_res = Excel(xlfMatch, a, new object[] { b }, -1.0);
+                        object b_leq_a_res = Excel(xlfMatch, b, new object[] { a }, -1.0);
+
+                        bool a_leq_b = a_leq_b_res is double;
+                        bool b_leq_a = b_leq_a_res is double;
+
+                        if (a_leq_b)
+                        {
+                            if (b_leq_a)
+                                dbg_result = 0;
+                            else
+                                dbg_result = -1;
+                        }
+                        else // !a_leq_b
+                        {
+                            if (b_leq_a)
+                                dbg_result = 1;
+                            else
+                                dbg_result = -2;  // Cannot be compared !?
+                        }
+                    }
+                    System.Diagnostics.Debug.Assert(dbg_result == result);
+#endif
+                    return result;
+                }
+
+                return -1; // b is bool, so is bigger then a, so a < b
             }
+
+            if (a is bool ba)
+            {
+                if (b is bool bb) // False < True
+                    return (!ba && bb) ? -1 : (ba == bb ? 0 : 1);
+
+                return 1; // b is something else and smaller than a bool, thus a > b
+            }
+
+            throw new ArgumentOutOfRangeException($"Unexpected comparison between {a} and {b}");
         }
 
 
@@ -414,7 +472,7 @@ namespace ExcelDna.XFunctions
         // 0 - finds the first value that is exactly equal to lookup_value. NO WILDCARDS.
         // -1 - finds the smallest value that is greater than or equal to lookup_value. lookup_array does not need to be sorted.
 #if DEBUG
-        public  // allows checking on a sheet
+        [ExcelFunction] public  // allows checking on a sheet
 #endif
         static object UnsortedMatch(object lookup_value, object lookup_array, int match_type, bool reverse_lookup = false)
         {
