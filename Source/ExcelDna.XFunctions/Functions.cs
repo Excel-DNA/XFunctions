@@ -16,25 +16,32 @@ namespace ExcelDna.XFunctions
 
     public static class Functions
     {
-        [ExcelFunction(Description = "The XLOOKUP function searches a range or an array, and returns an item corresponding to the first match it finds.\r\nIf a match doesn't exist, then XLOOKUP can return the closest (approximate) match.")]
+        [ExcelFunction(Description = "Searches a range or an array for a match, and returns the corresponding item from a second range or array. By default an exact match is used.\r\nIf a match doesn't exist, then XLOOKUP can return the closest (approximate) match.")]
 
         public static object XLOOKUP(
-            [ExcelArgument(Description="The lookup value (What you're looking for)")] object lookup_value,
-            [ExcelArgument(Description="The array or range to search (Where to find it)")] object lookup_array,
-            [ExcelArgument(Description="The array or range ot return (What to return)", AllowReference = true)] object return_array, 
+            [ExcelArgument(Description="is the lookup value (What you're looking for)")] object lookup_value,
+            [ExcelArgument(Description="is the array or range to search (Where to find it)")] object lookup_array,
+            [ExcelArgument(Description="is the array or range to return (What to return)", AllowReference = true)] object return_array,
+            [ExcelArgument(Name="[if_not_found]",Description = "returned if no match is found (optional).\r\nIf a valid match is not found, and [if_not_found] is missing, #N/A will be returned.")] object if_not_found,
             [ExcelArgument(
                 Name="[match_mode]",
-                Description="the match type (optional)\r\n 0 - Exact match. If none found, return #N/A (default)\r\n -1 - Exact match, else return the next smaller item\r\n 1 - Exact match, else return the next larger item\r\n 2 - A wildcard match - ? means any character and * means any run of characters"
+                Description="Specify the match type (optional)\r\n 0 - Exact match. If none found, return #N/A (default)\r\n -1 - Exact match, else return the next smaller item\r\n 1 - Exact match, else return the next larger item\r\n 2 - A wildcard match - ? means any character and * means any run of characters"
             )] object match_mode,
             [ExcelArgument(
                 Name = "[search_mode]",
-                Description = "the search mode to use (optional)\r\n 1 - Search first-to-last (default)\r\n -1 - Search last-to-first\r\n 2 - Binary search (sorted ascending order)\r\n -2 - Binary search (sorted descending order)"
+                Description = "Specify the search mode to use (optional)\r\n 1 - Search first-to-last (default)\r\n -1 - Search last-to-first\r\n 2 - Binary search (sorted ascending order)\r\n -2 - Binary search (sorted descending order)"
             )] object search_mode)
         {
             // Get the match index from XMATCH
             object matchResult = XMATCH(lookup_value, lookup_array, match_mode, search_mode);
-            if (matchResult is ExcelError)
-                return matchResult;
+            if (matchResult is ExcelError error)
+            {
+                if (error == ExcelError.ExcelErrorNA)
+                    if (if_not_found is ExcelMissing)
+                        return ExcelError.ExcelErrorNA; // Default if not found is #N/A
+
+                return error; // Might be other error, likely #VALUE
+            }
 
             if (!(matchResult is double))
             {
@@ -155,17 +162,17 @@ namespace ExcelDna.XFunctions
 
         // If lookup_value is a scalar (i.e. not object[,]), returns either a double (!) with the (integer) index result, or #N/A
         // Returns #VALUE for a parameter error
-        [ExcelFunction(Description = "The XMATCH function returns the relative position of an item in an array or range of cells. ")]
+        [ExcelFunction(Description = "Returns the relative position of an item in an array. By default, an exact match is required.")]
         public static object XMATCH(
-            [ExcelArgument(Description = "The lookup value (What you're looking for)")] object lookup_value,
-            [ExcelArgument(Description = "The array or range to search (Where to find it)")] object lookup_array,
+            [ExcelArgument(Description = "is the value to search for (what you're looking for)")] object lookup_value,
+            [ExcelArgument(Description = "is the array or range to search (where to find it)")] object lookup_array,
             [ExcelArgument(
                 Name="[match_mode]",
-                Description="the match type (optional)\r\n 0 - Exact match. If none found, return #N/A (default)\r\n -1 - Exact match, else return the next smaller item\r\n 1 - Exact match, else return the next larger item\r\n 2 - A wildcard match - ? means any character and * means any run of characters"
+                Description="specify how to match (optional)\r\n 0 - Exact match. If none, return #N/A (default)\r\n -1 - Exact match, else the next smaller item\r\n 1 - Exact match, else the next larger item\r\n 2 - Wildcard match - ? means any character, * means any run of characters"
             )] object match_mode,
             [ExcelArgument(
                 Name = "[search_mode]",
-                Description = "the search mode to use (optional)\r\n 1 - Search first-to-last (default)\r\n -1 - Search last-to-first\r\n 2 - Binary search (sorted ascending order)\r\n -2 - Binary search (sorted descending order)"
+                Description = "specify the search mode to use (optional)\r\n 1 - Search first-to-last (default)\r\n -1 - Search last-to-first\r\n 2 - Binary search (sorted ascending order)\r\n -2 - Binary search (sorted descending order)"
             )] object search_mode)
         {
             if (lookup_value is object[,])
@@ -560,7 +567,6 @@ namespace ExcelDna.XFunctions
         {
             var arr = lookup_array as object[,];
             int rows = arr.GetLength(0);
-            int cols = arr.GetLength(1);
             // If it's a single row, we return from the right column
             if (rows == 1)
             {

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <DnaLibrary Name="ExcelDna.XFunctions Add-In" RuntimeVersion="v4.0" xmlns="http://schemas.excel-dna.net/addin/2018/05/dnalibrary">
-  <ExternalLibrary Path="ExcelDna.XFunctions.dll" LoadFromBytes="true" Pack="true" />
-  <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" />
+  <ExternalLibrary Path="ExcelDna.XFunctions.dll" ExplicitRegistration="true" Pack="true" IncludePdb="false" />
+  <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" IncludePdb="false"  />
+  <Reference Path="ExcelDna.Registration.dll" Pack="true" IncludePdb="false"  />
 </DnaLibrary>
