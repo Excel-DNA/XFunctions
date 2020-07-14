@@ -5,9 +5,10 @@ Excel-DNA XFunctions Add-in
 
 For some great material (including videos) on the new functions see the Bill Jelen (Mr. Excel) site - [The VLOOKUP Slayer: XLOOKUP Debuts in Excel]( https://www.mrexcel.com/excel-tips/the-vlookup-slayer-xlookup-debuts-excel/#readmore).
 
-**XFunctions** is meant to be a completely compatible implementation that covers the full functionality of XLOOKUP and XMATCH, but for the current version I expect bugs, especially in the advanced parameter cases.
+**XFunctions** is meant to be a completely compatible implementation that covers the full functionality of XLOOKUP and XMATCH.
 
 The add-in should work in all Windows versions of Excel, with separate 32-bit and 64-bit add-ins.
+If the add-in is loaded into a version of Excel that already supports the XLOOKUP and XMATCH functions, the add-in will register the add-in functions under the names XLOOKUP.FROM.ADDIN and XMATCH.FROM.ADDIN respectively.
 
 Getting Started
 ---------------
@@ -17,6 +18,8 @@ Here are some example workbooks with data from the online help and other blogs p
 
 Examples
 --------
+_(Note that the examples below were created before the `[if_no_match]` parameter was added to XLOOKUP.)_
+
 The [HelpExamples workbook](https://github.com/Excel-DNA/XFunctions/blob/master/Examples/HelpExamples.xlsx) contains a number of examples corresponding to the online help documentation for the respective functions.
 
 ![XLOOKUP Example 1](https://github.com/Excel-DNA/XFunctions/blob/master/Screenshots/XLOOKUPExample1.png)
@@ -32,10 +35,9 @@ Notes
 
 TODO
 ----
-* Decide whether to use the same names or different ones (e.g. "XLookup_" to make clear it's not the built-in "XLOOKUP" function)
 * Understand compatibility for sheets between real functions and the XFunctions version - internally the workbook knows whether a function in a formula is a built-in function or an xll function . . . how does it behave when loaded backwards or forwards?
-* Decide what to do when loading in an instance where the real functions are present
 * Clean up, add tests etc.
+* Fix up example books again, in a version where XLOOKPU is not yet supported.
 
 Support and participation
 -------------------------
