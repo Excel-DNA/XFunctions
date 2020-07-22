@@ -37,7 +37,7 @@ TODO
 ----
 * Understand compatibility for sheets between real functions and the XFunctions version - internally the workbook knows whether a function in a formula is a built-in function or an xll function . . . how does it behave when loaded backwards or forwards?
 * Clean up, add tests etc.
-* Fix up example books again, in a version where XLOOKPU is not yet supported.
+* Fix up example books again, in a version where XLOOKUP is not yet supported.
 
 Support and participation
 -------------------------
